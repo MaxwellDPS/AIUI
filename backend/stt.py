@@ -5,11 +5,14 @@ import time
 import uuid
 
 import ffmpeg
-import openai
+import whisper
 
 from util import delete_file
 
 LANGUAGE = os.getenv("LANGUAGE", "en")
+MODEL_NAME = os.getenv("WHISPER_MODEL", "base")
+model = None
+
 
 
 async def transcribe(audio):
@@ -32,13 +35,14 @@ async def transcribe(audio):
 
     delete_file(initial_filepath)
 
-    read_file = open(converted_filepath, "rb")
-
-    logging.debug("calling whisper")
-    transcription = (await openai.Audio.atranscribe("whisper-1", read_file, language=LANGUAGE))["text"]
-    logging.info("STT response received from whisper in %s %s", time.time() - start_time, 'seconds')
-    logging.info('user prompt: %s', transcription)
-
-    delete_file(converted_filepath)
-
-    return transcription
+                 global model
+        if model is None:
+            logging.debug("loading whisper model %s", MODEL_NAME)
+            model = whisper.load_model(MODEL_NAME)
+        logging.debug("transcribing audio with local whisper")
+        result = model.transcribe(converted_filepath, language=LANGUAGE)
+        transcription = result["text"]
+        logging.info("STT response received from local whisper in %s seconds", time.time() - start_time)
+        logging.info('user prompt: %s', transcription)
+        delete_file(converted_filepath)
+        return transcriptionion
